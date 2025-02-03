@@ -1,0 +1,121 @@
+service: vehicle-auth-service
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  stage: dev
+  environment:
+    USER_POOL_ID: !Ref CognitoUserPool
+    CLIENT_ID: !Ref CognitoUserPoolClient
+    REGION: us-east-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - cognito-idp:AdminCreateUser
+            - cognito-idp:AdminAddUserToGroup
+          Resource: !GetAtt CognitoUserPool.Arn
+
+functions:
+  RegisterUser:
+    handler: src/handlers/RegisterUser.handler
+    events:
+      - http:
+          path: /registerUser
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: vehicle-users-${sls:stage}
+        SmsConfiguration:
+          SnsCallerArn: !GetAtt SNSSendSMSRole.Arn
+          ExternalId: vehicle-sms-config
+        SmsVerificationMessage: "Seu código de verificação: {####}"
+        AutoVerifiedAttributes:
+          - email # Remova phone_number se não quiser verificação por SMS
+        Schema:
+          - Name: email
+            AttributeDataType: String
+            Required: true
+            Mutable: true
+          - Name: name
+            AttributeDataType: String
+            Required: true
+            Mutable: true
+          - Name: phone_number
+            AttributeDataType: String
+            Required: true
+            Mutable: true
+          # Atributos customizados SEM o prefixo 'custom:'
+          - Name: rg
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: cnh
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: address
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: user_type # ← Corrigido aqui (removido 'custom:')
+            AttributeDataType: String
+            Required: false
+            Mutable: false
+
+    SNSSendSMSRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: CognitoSNSSendSMSRole
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: cognito-idp.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: SNSSendSMS
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: sns:Publish
+                  Resource: "*"
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: vehicle-client-${sls:stage}
+        UserPoolId: !Ref CognitoUserPool
+        GenerateSecret: true
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+
+    CognitoBuyerGroup:
+      Type: AWS::Cognito::UserPoolGroup
+      Properties:
+        GroupName: buyer
+        UserPoolId: !Ref CognitoUserPool
+        Description: Group for buyers
+
+    CognitoSellerGroup:
+      Type: AWS::Cognito::UserPoolGroup
+      Properties:
+        GroupName: seller
+        UserPoolId: !Ref CognitoUserPool
+        Description: Group for sellers
+
+  Outputs:
+    UserPoolId:
+      Value: !Ref CognitoUserPool
+    UserPoolClientId:
+      Value: !Ref CognitoUserPoolClient
