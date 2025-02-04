@@ -1,7 +1,7 @@
 import { IsEnum, IsString } from "class-validator";
 import { UserType } from "../utils";
 
-export class SignUpDTO {
+export class RegisterUserDTO {
   @IsString()
   email: string;
 

@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "jest",
-    "deploy": "sam build && sam deploy --guided",
+    "deploy": "sls deploy -s dev",
     "start": "sam build --beta-features && sam local start-api --host localhost --docker-network host"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-import { SignUpDTO } from "../dto";
+import { RegisterUserDTO } from "../dto";
 import { validateDto } from "../utils";
 import { UserRepository } from "../repositories";
 
@@ -11,7 +11,7 @@ export const handler = async (
     return { statusCode: 400, body: "Request body is missing" };
   }
 
-  const dto = await validateDto(SignUpDTO, JSON.parse(event.body));
+  const dto = await validateDto(RegisterUserDTO, JSON.parse(event.body));
   const repository = new UserRepository();
 
   try {

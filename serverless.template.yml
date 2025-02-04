@@ -7,7 +7,7 @@ provider:
   stage: dev
   environment:
     USER_POOL_ID: !Ref CognitoUserPool
-    CLIENT_ID: !Ref CognitoUserPoolClient
+    COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
     REGION: us-east-1
   iam:
     role:
@@ -16,7 +16,9 @@ provider:
           Action:
             - cognito-idp:AdminCreateUser
             - cognito-idp:AdminAddUserToGroup
-          Resource: !GetAtt CognitoUserPool.Arn
+            - cognito-idp:AdminSetUserPassword
+          Resource:
+            - !GetAtt CognitoUserPool.Arn
 
 functions:
   RegisterUser:
@@ -26,6 +28,48 @@ functions:
           path: /registerUser
           method: post
           cors: true
+
+  SignIn:
+    handler: src/handlers/SignIn.handler
+    events:
+      - http:
+          path: /signin
+          method: post
+          cors: true
+    environment:
+      USER_POOL_ID:
+        Ref: CognitoUserPool
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+      REGION: us-east-1
+
+  VerifyToken:
+    handler: src/handlers/VerifyToken.handler
+    events:
+      - http:
+          path: /verifyToken
+          method: get
+          cors: true
+    environment:
+      USER_POOL_ID:
+        Ref: CognitoUserPool
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+      REGION: us-east-1
+
+  RefreshToken:
+    handler: src/handlers/RefreshToken.handler
+    events:
+      - http:
+          path: /refreshToken
+          method: post
+          cors: true
+    environment:
+      USER_POOL_ID:
+        Ref: CognitoUserPool
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+      REGION: us-east-1
 
 resources:
   Resources:
@@ -38,7 +82,7 @@ resources:
           ExternalId: vehicle-sms-config
         SmsVerificationMessage: "Seu código de verificação: {####}"
         AutoVerifiedAttributes:
-          - email # Remova phone_number se não quiser verificação por SMS
+          - email
         Schema:
           - Name: email
             AttributeDataType: String
@@ -52,7 +96,6 @@ resources:
             AttributeDataType: String
             Required: true
             Mutable: true
-          # Atributos customizados SEM o prefixo 'custom:'
           - Name: rg
             AttributeDataType: String
             Required: false
@@ -65,7 +108,7 @@ resources:
             AttributeDataType: String
             Required: false
             Mutable: true
-          - Name: user_type # ← Corrigido aqui (removido 'custom:')
+          - Name: user_type
             AttributeDataType: String
             Required: false
             Mutable: false
@@ -95,7 +138,7 @@ resources:
       Properties:
         ClientName: vehicle-client-${sls:stage}
         UserPoolId: !Ref CognitoUserPool
-        GenerateSecret: true
+        GenerateSecret: false
         ExplicitAuthFlows:
           - ALLOW_USER_PASSWORD_AUTH
           - ALLOW_REFRESH_TOKEN_AUTH
