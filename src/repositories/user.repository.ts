@@ -26,9 +26,8 @@ export class UserRepository {
         { Name: "email", Value: email },
         { Name: "name", Value: name },
         { Name: "phone_number", Value: phone },
-        // Atributos customizados COM prefixo
         { Name: "custom:rg", Value: rg },
-        { Name: "custom:user_type", Value: userType }, // ← Corrigido aqui
+        { Name: "custom:user_type", Value: userType },
         ...(userType === UserType.BUYER
           ? [
               { Name: "custom:cnh", Value: cnh },
