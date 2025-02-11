@@ -1,14 +1,16 @@
-import { CognitoIdentityServiceProvider } from "aws-sdk";
-
-import { SignInDTO, RegisterUserDTO, RefreshTokenDTO } from "../dto";
-import { ISignInResponse, UserType } from "../utils";
-import { AdminSetUserPasswordRequest } from "aws-sdk/clients/cognitoidentityserviceprovider";
 import {
+  AdminGetUserCommand,
   AuthFlowType,
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
   InitiateAuthCommandInput,
 } from "@aws-sdk/client-cognito-identity-provider";
+import { CognitoIdentityServiceProvider } from "aws-sdk";
+import { APIGatewayProxyEventQueryStringParameters } from "aws-lambda";
+import { AdminSetUserPasswordRequest } from "aws-sdk/clients/cognitoidentityserviceprovider";
+
+import { ISignInResponse, UserType } from "../utils";
+import { SignInDTO, RegisterUserDTO, RefreshTokenDTO } from "../dto";
 
 const cognito = new CognitoIdentityServiceProvider();
 const client = new CognitoIdentityProviderClient({
@@ -97,5 +99,54 @@ export class UserRepository {
       accessToken: response.AuthenticationResult?.AccessToken,
       tokenId: response.AuthenticationResult?.IdToken,
     };
+  }
+
+  async getUserData(
+    token: string,
+    requestParams: APIGatewayProxyEventQueryStringParameters
+  ) {
+    const params = {
+      AccessToken: token,
+    };
+
+    const userData = await cognito.getUser(params).promise();
+
+    const isSeller = userData.UserAttributes.find(({ Name, Value }) => {
+      if (Name === "cognito:groups") {
+        return Value?.includes("seller");
+      }
+    });
+
+    console.debug("[UserRepository][getUserData]|[isSeller] => ", isSeller);
+
+    let username: string;
+
+    if (isSeller) {
+      // Lógica para administradores
+      if (!requestParams.email) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({
+            message:
+              "Parâmetro userId ou email obrigatório para administradores",
+          }),
+        };
+      }
+
+      username = requestParams.email;
+    } else {
+      username = String(
+        userData.UserAttributes.find(({ Name }) => Name === "username")?.Value
+      );
+    }
+
+    console.debug("[UserRepository][getUserData]|[username]=> ", username);
+
+    const getUserCommand = new AdminGetUserCommand({
+      UserPoolId: process.env.USER_POOL_ID,
+      Username: username,
+    });
+
+    return await client.send(getUserCommand);
   }
 }
