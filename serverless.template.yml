@@ -71,6 +71,20 @@ functions:
         Ref: CognitoUserPoolClient
       REGION: us-east-1
 
+  GetUserData:
+    handler: src/handlers/GetUserData.handler
+    events:
+      - http:
+          path: /user/data
+          method: get
+          cors: true
+    environment:
+      USER_POOL_ID:
+        Ref: CognitoUserPool
+      COGNITO_CLIENT_ID:
+        Ref: CognitoUserPoolClient
+      REGION: us-east-1
+
 resources:
   Resources:
     CognitoUserPool:
